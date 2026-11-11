@@ -259,17 +259,25 @@ class SafetyGate(
         }
         // Everything above is a hard rule (or one the person lifted); everything below only asks.
         val eligibleVisual = kind == WriteKind.TAP_XY && coordinate != null && eligibleCoordinate(coordinate, visual, p)
-        val forceOnce = kind == WriteKind.TAP_XY && !eligibleVisual
-        if (waived(p) && !forceOnce) return Verdict.Allow
+        // 1.0.14's release note promises one permission per task and app for
+        // snapshot-coordinate taps. An app the person already approved for this task
+        // covers plain coordinate taps too. Long press and swipe keep asking every
+        // time (they can be destructive and prove nothing about the target), and so do
+        // coordinates on the background screen, whose card cannot show the screenshot.
+        val coordinateTap = kind == WriteKind.TAP_XY && coordinate?.gesture == PhoneAction.CoordinateGesture.TAP &&
+            screen == PhoneScreen.MAIN
         val everyWrite = pkg != null && pkg in p.confirmEveryWritePackages
-        val firstInApp = !forceOnce && !everyWrite && (pkg == null || !tasks.isApproved(pkg))
+        val approvedApp = pkg != null && !everyWrite && tasks.isApproved(pkg)
+        val forceOnce = kind == WriteKind.TAP_XY && !eligibleVisual && !(coordinateTap && approvedApp)
+        if (waived(p) && !forceOnce) return Verdict.Allow
+        val firstInApp = !everyWrite && !(forceOnce && !coordinateTap) && (pkg == null || !approvedApp)
         val word = if (kind == WriteKind.TAP || kind == WriteKind.LONG_TAP || kind == WriteKind.TAP_XY) SafetyRules.sensitiveWord(target?.label, target?.viewId) else null
         val actionApp = appLabel ?: pkg ?: uiText.get("phone_current_app", "当前应用") // l10n:keep test default
         val action = describe(kind, target, actionApp, if (secret) SafetyRules.MASK else typed, submit, point, coordinate) +
             if (kind == WriteKind.TAP_XY && screen == PhoneScreen.BACKGROUND)
                 uiText.get("phone_confirm_background_coordinate", "。这是最近后台截图的位置，请核对目标。此确认卡不含原截图。") else "" // l10n:keep test default
         val reason = when {
-            kind == WriteKind.TAP_XY && !eligibleVisual -> "tap_xy"
+            kind == WriteKind.TAP_XY && forceOnce -> "tap_xy"
             kind == WriteKind.TYPE && submit -> "submit"
             word != null -> "sensitive:$word"
             everyWrite -> "every-write"

@@ -86,6 +86,8 @@ Stopping phone control also stops every reply in progress on this phone's engine
 - **This task**: asks once per task. Choose **Allow for task** on the approval card, and the rest of the task goes ahead.
 - **Always skip**: acts without asking. Asks you to confirm before turning on.
 
+Snapshot-coordinate taps (`tap_xy`) work a little differently: the first one in an app during a task asks on its own, and its card offers both "Allow “App” for task" and "Allow once". The former approves that app for the rest of the task, so later coordinate taps in the same app do not ask again; the latter asks again next time. Long press and swipe still ask every time, and so do sending, paying and deleting.
+
 When you pick Phone control during first-time setup, you choose once after agreeing to the disclosure: **Ask me at key steps** (Always ask) or **Fully automatic** (Always skip). You can change it here anytime.
 
 An approval card left for 30 seconds counts as **Decline**. In every mode, system settings and permission pages, passwords and verification codes, and DSH Go itself stay with you unless turned on under **Lift limits**; apps set to Hands off are changed in **App rules**. Confirmation lists these, with links to both.
