@@ -1533,6 +1533,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
         : null;
     final hasFolders = sessionId == null && ref.watch(drawerViewProvider).folders.isNotEmpty;
     final commands = ref.watch(slashCommandsProvider(sessionId));
+    // A new chat's rows are borrowed from the newest conversation (#316).
+    final newChatNotice = sessionId == null ? ref.watch(newChatCatalogNoticeProvider) : NewChatCatalogNotice.none;
     final contextFraction = sessionId == null
         ? null
         : ref.watch(sessionUsageProvider(sessionId).select((u) => u.contextFraction));
@@ -1857,6 +1859,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> with WidgetsBindingObse
                                     : SlashPalette(
                                         key: ValueKey(content is PaletteHint),
                                         content: content,
+                                        footer: switch (newChatNotice) {
+                                          NewChatCatalogNotice.borrowed => SlashPaletteFooter(
+                                            text: l10n.activitySlashBorrowedCatalog,
+                                          ),
+                                          NewChatCatalogNotice.retry => SlashPaletteFooter(
+                                            text: l10n.activitySlashBorrowedCatalog,
+                                            retryLabel: l10n.commonRetry,
+                                            onRetry: () => retryNewChatCatalog(ref),
+                                          ),
+                                          NewChatCatalogNotice.none => null,
+                                        },
                                         onPick: _pick,
                                       ),
                               ),

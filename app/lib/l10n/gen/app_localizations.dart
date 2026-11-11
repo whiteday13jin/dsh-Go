@@ -2222,6 +2222,12 @@ abstract class L10n {
   /// **'指令'**
   String get activitySlashCommands;
 
+  /// No description provided for @activitySlashBorrowedCatalog.
+  ///
+  /// In zh, this message translates to:
+  /// **'来自上次对话，可能不含新装的技能'**
+  String get activitySlashBorrowedCatalog;
+
   /// No description provided for @activitySlashEnterArgs.
   ///
   /// In zh, this message translates to:

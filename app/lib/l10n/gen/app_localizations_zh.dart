@@ -1093,6 +1093,9 @@ class L10nZh extends L10n {
   String get activitySlashCommands => '指令';
 
   @override
+  String get activitySlashBorrowedCatalog => '来自上次对话，可能不含新装的技能';
+
+  @override
   String get activitySlashEnterArgs => '输入参数后发送';
 
   @override

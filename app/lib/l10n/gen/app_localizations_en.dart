@@ -1099,6 +1099,9 @@ class L10nEn extends L10n {
   String get activitySlashCommands => 'Commands';
 
   @override
+  String get activitySlashBorrowedCatalog => 'From your last conversation; newly installed skills may be missing';
+
+  @override
   String get activitySlashEnterArgs => 'Enter arguments, then send';
 
   @override

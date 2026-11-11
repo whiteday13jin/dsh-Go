@@ -421,6 +421,7 @@
   "activitySecretShow": "显示密钥",
   "activitySlashNoMatch": "没有匹配的指令，按普通消息发送",
   "activitySlashCommands": "指令",
+  "activitySlashBorrowedCatalog": "来自上次对话，可能不含新装的技能",
   "activitySlashEnterArgs": "输入参数后发送",
   "activityStepTitle": "步骤详情",
   "activityStepMissing": "这一步不在已加载的记录里",

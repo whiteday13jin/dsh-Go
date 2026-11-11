@@ -73,10 +73,13 @@ final class PaletteHint extends PaletteContent {
 /// 行首图标的中心与输入条里 ＋ 键的中心对齐;图标是 20 号线性图标、次要色,
 /// 不带底色。
 class SlashPalette extends StatelessWidget {
-  const SlashPalette({super.key, required this.content, required this.onPick});
+  const SlashPalette({super.key, required this.content, required this.onPick, this.footer});
 
   final PaletteContent content;
   final ValueChanged<SlashCommand> onPick;
+
+  /// Extra line under the rows (a new chat's borrowed-catalog note, #316).
+  final Widget? footer;
 
   static const _rowHeight = 56.0;
   static const _maxRows = 5.5;
@@ -141,9 +144,56 @@ class SlashPalette extends StatelessWidget {
             duration: AppMotion.of(context, AppMotion.quick),
             curve: AppMotion.std,
             alignment: Alignment.bottomCenter,
-            child: body,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [body, ?footer],
+            ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// New-chat footer: the rows come from another conversation (#316).
+class SlashPaletteFooter extends StatelessWidget {
+  const SlashPaletteFooter({super.key, required this.text, this.retryLabel, this.onRetry});
+
+  final String text;
+
+  /// 「重试」 when the borrowed catalog could not be read.
+  final String? retryLabel;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dsh = DshColors.of(context);
+    final retry = retryLabel;
+    return Padding(
+      // The info icon sits where a row's icon does, so the note reads as part
+      // of the same list.
+      padding: const EdgeInsets.fromLTRB(14, 0, 8, 8),
+      child: Row(
+        children: [
+          Icon(AppIcons.info, size: 16, color: dsh.textTertiary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(text, style: theme.textTheme.bodySmall?.copyWith(color: dsh.textTertiary, height: 1.35)),
+          ),
+          if (retry != null && onRetry != null)
+            TextButton(
+              onPressed: onRetry,
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: const Size(0, 32),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(retry),
+            ),
+        ],
       ),
     );
   }

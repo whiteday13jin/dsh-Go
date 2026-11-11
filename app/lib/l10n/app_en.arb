@@ -355,6 +355,7 @@
   "activitySecretShow": "Show key",
   "activitySlashNoMatch": "No matching command. Send as a message",
   "activitySlashCommands": "Commands",
+  "activitySlashBorrowedCatalog": "From your last conversation; newly installed skills may be missing",
   "activitySlashEnterArgs": "Enter arguments, then send",
   "activityStepTitle": "Step details",
   "activityStepMissing": "This step isn’t in the loaded history",

@@ -4,6 +4,7 @@ import 'package:dsh_client/dsh_client.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/l10n.dart';
+import 'agents_state.dart';
 import 'connection_state.dart';
 import 'features_state.dart';
 import 'hosts_state.dart';
@@ -255,7 +256,32 @@ bool _isSubsequence(String needle, String haystack) {
 /// plugin commands.
 final Map<HostRef, List<SlashCommand>> _lastHostCommands = {};
 
-/// `commands/list` for [sessionId] (null = new chat: the last known list).
+/// Last skill rows per host: the new-chat palette's fallback when the
+/// borrowed conversation's catalog cannot be read (#316).
+final Map<HostRef, List<SlashCommand>> _lastSkills = {};
+
+/// Newest real conversation on the active host — the one a new chat borrows
+/// its command and skill catalog from (#316): `commands/list` and
+/// `skills/list` both need a session id, and a new chat has none until the
+/// first message. Blank rows and subagent children are skipped.
+String? newChatCatalogDonor(Iterable<SessionSummary> sessions) {
+  SessionSummary? newest;
+  for (final s in sessions) {
+    if (s.isSubagent || s.blank) continue;
+    if (newest == null || s.updatedAt.isAfter(newest.updatedAt)) newest = s;
+  }
+  return newest?.sessionId;
+}
+
+/// The borrowed session id for a new chat; null when not connected or the
+/// host has no conversation yet.
+final newChatCatalogDonorProvider = Provider.autoDispose<String?>((ref) {
+  if (ref.watch(activeConnectionProvider).value == null) return null;
+  return newChatCatalogDonor(ref.watch(hostSessionsProvider).values);
+});
+
+/// `commands/list` for [sessionId] (null = new chat: the newest conversation's
+/// catalog, else the last known list).
 ///
 /// Re-fetched when the Host reports `commands/change` (a plugin registered or
 /// dropped a command) or `agent-preset/selected`. Failures are quiet: the
@@ -264,7 +290,10 @@ final hostCommandsProvider = FutureProvider.autoDispose.family<List<SlashCommand
   final conn = ref.watch(activeConnectionProvider).value;
   final host = ref.watch(activeHostProvider);
   if (conn == null) return const [];
-  if (sessionId == null) return _lastHostCommands[host] ?? const [];
+  // A new chat borrows the newest conversation's catalog instead of giving up
+  // with nothing (#316).
+  final requested = sessionId ?? ref.watch(newChatCatalogDonorProvider);
+  if (requested == null) return _lastHostCommands[host] ?? const [];
   final sub = conn.client.hostEvents.listen((event) {
     if (event is HostReadyEvent ||
         (event is UnknownHostEvent && (event.event == 'commands/change' || event.event == 'agent-preset/selected'))) {
@@ -273,22 +302,61 @@ final hostCommandsProvider = FutureProvider.autoDispose.family<List<SlashCommand
   });
   ref.onDispose(() => unawaited(sub.cancel()));
   try {
-    final value = await conn.client.rpc.call('commands/list', {'agentId': sessionId});
+    final value = await conn.client.rpc.call('commands/list', {'agentId': requested});
     return _lastHostCommands[host] = parseCommandList(value);
   } catch (_) {
     return _lastHostCommands[host] ?? const [];
   }
 });
 
-/// The session's skills as palette rows (none for a new chat).
+/// The session's skills as palette rows; a new chat borrows the newest
+/// conversation's rows (see [newChatCatalogDonorProvider]) and marks them.
 final skillCommandsProvider = Provider.autoDispose.family<List<SlashCommand>, String?>((ref, sessionId) {
-  if (sessionId == null) return const [];
-  final skills = ref.watch(skillsProvider(sessionId)).value ?? const [];
-  return [
+  final host = ref.watch(activeHostProvider);
+  final borrowed = sessionId == null;
+  final requested = sessionId ?? ref.watch(newChatCatalogDonorProvider);
+  final fallback = borrowed ? _lastSkills[host] ?? const <SlashCommand>[] : const <SlashCommand>[];
+  if (requested == null) return fallback;
+  final skills = ref.watch(skillsProvider(requested)).value;
+  if (skills == null) return fallback;
+  final rows = [
     for (final s in skills)
       SlashCommand(name: s.name, label: s.name, description: s.description, hint: '', kind: SlashCommandKind.skill),
   ];
+  if (borrowed) _lastSkills[host] = rows;
+  return rows;
 });
+
+/// What the new-chat palette's footer says (#316).
+enum NewChatCatalogNotice {
+  /// Nothing to say: no donor, or the borrowed catalog came back empty.
+  none,
+
+  /// The rows come from another conversation.
+  borrowed,
+
+  /// Reading the borrowed catalog failed; offer a retry.
+  retry,
+}
+
+final newChatCatalogNoticeProvider = Provider.autoDispose<NewChatCatalogNotice>((ref) {
+  final donor = ref.watch(newChatCatalogDonorProvider);
+  if (donor == null) return NewChatCatalogNotice.none;
+  final commands = ref.watch(hostCommandsProvider(null));
+  final skills = ref.watch(skillsProvider(donor));
+  if ((commands.value?.isNotEmpty ?? false) || (skills.value?.isNotEmpty ?? false)) {
+    return NewChatCatalogNotice.borrowed;
+  }
+  if (commands.hasError || skills.hasError) return NewChatCatalogNotice.retry;
+  return NewChatCatalogNotice.none;
+});
+
+/// Re-reads the borrowed catalog (the palette footer's 重试).
+void retryNewChatCatalog(WidgetRef ref) {
+  ref.invalidate(hostCommandsProvider(null));
+  final donor = ref.read(newChatCatalogDonorProvider);
+  if (donor != null) ref.invalidate(skillsProvider(donor));
+}
 
 /// Everything the palette offers for [sessionId].
 final slashCommandsProvider = Provider.autoDispose.family<List<SlashCommand>, String?>((ref, sessionId) {
